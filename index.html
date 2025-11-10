@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nebula Server Dashboard | Aternos Redesign</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+
+        .console-output::-webkit-scrollbar { width: 8px; }
+        .console-output::-webkit-scrollbar-track { background: #1f2937; }
+        .console-output::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        .console-output::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; }
+
+        @keyframes pulse-status {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            50% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+        }
+        .online-pulse { animation: pulse-status 2s cubic-bezier(0.4,0,0.6,1) infinite; }
+    </style>
+</head>
+<body class="min-h-screen text-gray-100">
+<div id="app" class="p-4 md:p-8">
+    <!-- Header -->
+    <header class="flex justify-between items-center mb-6 pb-3 border-b border-slate-700">
+        <h1 class="text-2xl md:text-3xl font-extrabold text-indigo-400 tracking-tight">
+            <span class="text-lg mr-1">🪐</span> Nebula
+        </h1>
+        <div class="flex items-center space-x-2">
+            <span class="text-xs font-medium text-gray-400 hidden sm:inline">User: CaptainSpark</span>
+            <div class="w-8 h-8 md:w-10 md:h-10 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm md:text-lg border-2 border-indigo-400">CS</div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Grid -->
+    <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Server Status Card -->
+        <div class="lg:col-span-2 bg-slate-800/70 p-5 md:p-6 rounded-2xl shadow-xl border border-slate-700/50">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+                <div class="mb-4 md:mb-0">
+                    <div id="status-indicator" class="flex items-center space-x-3">
+                        <div id="status-led" class="w-4 h-4 rounded-full bg-gray-500"></div>
+                        <h2 id="server-status-text" class="text-xl md:text-2xl font-bold text-gray-300">Server Offline</h2>
+                    </div>
+                    <p class="text-xs md:text-sm text-gray-400 mt-1 flex items-center">
+                        <span id="ip-address">play.nebula-mc.net</span>
+                        <button onclick="copyIP()" class="ml-2 text-indigo-400 hover:text-indigo-300 active:scale-95 transition duration-150 p-1 rounded-md bg-slate-700/50">
+                            Copy
+                        </button>
+                        <span id="copy-message" class="ml-3 text-xs text-green-400 opacity-0 transition-opacity duration-300">Copied!</span>
+                    </p>
+                </div>
+
+                <div class="flex flex-wrap gap-3 w-full md:w-auto p-2 bg-slate-700 rounded-xl shadow-inner md:bg-transparent md:p-0">
+                    <button id="btn-start" onclick="startServer()" class="flex-1 min-w-[30%] px-4 py-3 text-base md:text-lg font-semibold rounded-xl transition duration-300 shadow-lg bg-green-600 hover:bg-green-700 disabled:bg-gray-500 disabled:text-gray-400 disabled:shadow-none active:scale-[0.98]">Start</button>
+                    <button id="btn-restart" onclick="restartServer()" class="flex-1 min-w-[30%] px-4 py-3 text-sm md:text-base font-medium rounded-xl transition duration-300 bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-500 disabled:text-gray-400 disabled:shadow-none active:scale-[0.98]">Restart</button>
+                    <button id="btn-stop" onclick="stopServer()" class="flex-1 min-w-[30%] px-4 py-3 text-sm md:text-base font-medium rounded-xl transition duration-300 bg-red-600 hover:bg-red-700 disabled:bg-gray-500 disabled:text-gray-400 disabled:shadow-none active:scale-[0.98]">Stop</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real-Time Metrics Card -->
+        <div class="bg-slate-800/70 p-5 md:p-6 rounded-2xl shadow-xl border border-slate-700/50">
+            <h3 class="text-lg md:text-xl font-bold mb-4 text-gray-300">Real-Time Metrics</h3>
+            <div class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-400">Players</span>
+                    <span id="metric-players" class="text-xl md:text-2xl font-extrabold text-green-400">0 / 20</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-400">TPS</span>
+                    <span id="metric-tps" class="text-xl md:text-2xl font-extrabold text-yellow-400">20.00</span>
+                </div>
+                <div class="pt-2">
+                    <span class="text-gray-400 flex items-center mb-1">RAM (2048 MB)</span>
+                    <div class="w-full bg-slate-700 rounded-full h-2.5">
+                        <div id="ram-bar" class="bg-blue-500 h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                    <p id="metric-ram" class="text-xs text-right mt-1 text-blue-400 font-medium">0 MB</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Console Log -->
+        <div class="lg:col-span-3 bg-slate-800/70 p-5 md:p-6 rounded-2xl shadow-xl border border-slate-700/50">
+            <h3 class="text-lg md:text-xl font-bold mb-4 text-gray-300">Console Log</h3>
+            <div id="console-output" class="console-output bg-slate-900 h-64 md:h-80 overflow-y-scroll p-3 md:p-4 rounded-lg text-xs font-mono text-white leading-relaxed whitespace-pre-wrap">
+                [System] Awaiting server interaction...
+            </div>
+            <div class="mt-4 flex">
+                <input id="console-input" type="text" placeholder="Type a console command..." class="flex-grow bg-slate-700 text-gray-200 p-3 rounded-l-xl focus:ring-2 focus:ring-indigo-500 border-none outline-none text-sm">
+                <button onclick="sendCommand()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold p-3 rounded-r-xl transition duration-200 disabled:bg-gray-500 active:scale-[0.98]">Send</button>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+    // --- Backend URL ---
+    const BACKEND_URL = 'https://aternos-backend.onrender.com'; // <-- Replace with your Render backend
+
+    // --- DOM Elements ---
+    const statusLed = document.getElementById('status-led');
+    const statusText = document.getElementById('server-status-text');
+    const consoleOutput = document.getElementById('console-output');
+    const btnStart = document.getElementById('btn-start');
+    const btnStop = document.getElementById('btn-stop');
+    const btnRestart = document.getElementById('btn-restart');
+    const metricPlayers = document.getElementById('metric-players');
+    const metricTps = document.getElementById('metric-tps');
+    const ramBar = document.getElementById('ram-bar');
+    const metricRam = document.getElementById('metric-ram');
+    const copyMsg = document.getElementById('copy-message');
+
+    let serverState = 'Offline';
+    let metricInterval;
+    const MAX_RAM = 2048;
+
+    // --- Utility Functions ---
+    function log(message, type='INFO') {
+        const timestamp = new Date().toLocaleTimeString('en-US', {hour12:false});
+        consoleOutput.innerHTML += `[${timestamp}] [${type}] ${message}\n`;
+        consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    }
+
+    function updateUI() {
+        statusLed.className = 'w-4 h-4 rounded-full transition-all duration-500';
+        btnStart.disabled = btnStop.disabled = btnRestart.disabled = true;
+
+        switch(serverState){
+            case 'Offline':
+                statusLed.classList.add('bg-gray-500');
+                statusText.textContent = 'Server Offline';
+                btnStart.disabled = false;
+                break;
+            case 'Starting':
+                statusLed.classList.add('bg-yellow-500');
+                statusText.textContent = 'Starting...';
+                break;
+            case 'Online':
+                statusLed.classList.add('bg-green-500', 'online-pulse');
+                statusText.textContent = 'Online & Ready';
+                btnStop.disabled = btnRestart.disabled = false;
+                break;
+            case 'Stopping':
+                statusLed.classList.add('bg-red-500');
+                statusText.textContent = 'Stopping...';
+                break;
+            case 'Restarting':
+                statusLed.classList.add('bg-orange-500');
+                statusText.textContent = 'Restarting...';
+                break;
+        }
+    }
+
+    // --- Server Actions (Connect to Backend) ---
+    async function startServer() {
+        if(serverState !== 'Offline') return;
+        log('Sending start request...', 'SYSTEM');
+        serverState='Starting'; updateUI();
+        try{
+            const res = await fetch(`${BACKEND_URL}/start`, {method:'POST'});
+            const data = await res.json();
+            log(data.status,'INFO');
+            pollLogs();
+        } catch(err){ log('Failed to start: '+err.message,'ERROR'); serverState='Offline'; updateUI(); }
+    }
+
+    async function stopServer() {
+        if(serverState!=='Online') return;
+        log('Sending stop request...', 'SYSTEM');
+        serverState='Stopping'; updateUI();
+        try{
+            const res = await fetch(`${BACKEND_URL}/stop`, {method:'POST'});
+            const data = await res.json();
+            log(data.status,'INFO');
+        } catch(err){ log('Failed to stop: '+err.message,'ERROR'); serverState='Online'; updateUI(); }
+    }
+
+    async function restartServer() {
+        if(serverState!=='Online') return;
+        log('Sending restart request...', 'SYSTEM');
+        serverState='Restarting'; updateUI();
+        try{
+            const res = await fetch(`${BACKEND_URL}/restart`, {method:'POST'});
+            const data = await res.json();
+            log(data.status,'INFO');
+            pollLogs();
+        } catch(err){ log('Failed to restart: '+err.message,'ERROR'); serverState='Online'; updateUI(); }
+    }
+
+    async function sendCommand() {
+        const cmd = document.getElementById('console-input').value.trim();
+        if(!cmd) return;
+        log(`> ${cmd}`, 'COMMAND');
+        document.getElementById('console-input').value='';
+        try {
+            const res = await fetch(`${BACKEND_URL}/command`, {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({command:cmd})
+            });
+            const data = await res.json();
+            if(data.response) log(data.response,'INFO');
+        } catch(err){ log('Command failed: '+err.message,'ERROR'); }
+    }
+
+    // --- Poll logs every 5 seconds ---
+    async function pollLogs(){
+        try{
+            const res = await fetch(`${BACKEND_URL}/logs`);
+            const data = await res.json();
+            if(data.logs){
+                consoleOutput.innerText = data.logs;
+            }
+        } catch(err){ log('Error fetching logs: '+err.message,'ERROR'); }
+    }
+    setInterval(pollLogs,5000);
+
+    function copyIP(){
+        const ip = document.getElementById('ip-address').textContent;
+        navigator.clipboard.writeText(ip).then(()=>{
+            copyMsg.classList.add('opacity-100');
+            setTimeout(()=>copyMsg.classList.remove('opacity-100'),1500);
+        });
+    }
+
+    window.onload=function(){
+        updateUI();
+        document.getElementById('console-input').addEventListener('keydown',(e)=>{
+            if(e.key==='Enter'){ e.preventDefault(); sendCommand(); }
+        });
+        log('Nebula Dashboard ready.','SYSTEM');
+    };
+</script>
+</body>
+</html>
